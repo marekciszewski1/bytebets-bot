@@ -164,10 +164,27 @@ async function handlePing(interaction: ChatInputCommandInteraction): Promise<voi
         ? "\nDB schema: **OK** (001–004 probes passed)"
         : `\nDB schema: **issues** — failing: ${failed.join(", ")} (run missing SQL migrations)`;
   }
+
+  let commandsLine = "";
+  try {
+    const { fetchRegisteredCommandNames } = await import("./registerSlashCommands.js");
+    const names = await fetchRegisteredCommandNames();
+    const guildId = process.env.DISCORD_GUILD_ID;
+    commandsLine = `\nSlash commands on ${
+      guildId ? `guild \`${guildId}\`` : "global app"
+    }: **${names.length}** — ${names.slice(0, 12).join(", ")}${names.length > 12 ? "…" : ""}`;
+    if (!names.includes("casino")) {
+      commandsLine +=
+        "\n⚠️ **`casino` missing** — redeploy with Discord env vars; bot registers commands on startup by default.";
+    }
+  } catch {
+    commandsLine = "\nCould not fetch slash command list (check DISCORD_TOKEN / CLIENT_ID / GUILD_ID on host).";
+  }
+
   await interaction.reply("Pong!");
   const latency = Date.now() - sent;
   await interaction.editReply(
-    `Pong! Round-trip: ${latency}ms · API: ${Math.round(interaction.client.ws.ping)}ms${schemaLine}`
+    `Pong! Round-trip: ${latency}ms · API: ${Math.round(interaction.client.ws.ping)}ms${schemaLine}${commandsLine}`
   );
 }
 

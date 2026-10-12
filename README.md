@@ -23,6 +23,19 @@ flowchart LR
 3. Copy `.env.example` → `.env` and fill Discord + Supabase vars.
 4. `npm install && npm run register-commands && npm run dev`
 
+## Resend / Render deploy (slash commands)
+
+Many hosts **do not** pass `DISCORD_TOKEN` to the **build** step, so `npm run register-commands` in build silently never runs.
+
+**Fix (default in this repo):** set runtime env vars on the worker:
+
+- `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, **`DISCORD_GUILD_ID`** (your server ID)
+- `REGISTER_COMMANDS_ON_START=true` (default — registers all commands when the bot boots)
+
+After redeploy, run **`/ping`**. It lists how many slash commands Discord has for that guild and warns if `casino` is missing.
+
+Re-invite the bot with **`applications.commands`** scope if commands stay empty.
+
 ## Commands (P0 + P1)
 
 | Command | Description |
