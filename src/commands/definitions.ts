@@ -184,6 +184,7 @@ export const commandBuilders = [
         .addStringOption((o) =>
           o
             .setName("visibility")
+            .setDescription("Public listing or private invite-only match")
             .addChoices({ name: "Public", value: "public" }, { name: "Private invite", value: "private" })
         )
         .addUserOption((o) => o.setName("opponent").setDescription("Optional invitee for private match"))
@@ -222,6 +223,7 @@ export const commandBuilders = [
         .addStringOption((o) =>
           o
             .setName("side")
+            .setDescription("Heads or tails")
             .setRequired(true)
             .addChoices({ name: "Heads", value: "heads" }, { name: "Tails", value: "tails" })
         )
