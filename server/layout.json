@@ -1,0 +1,308 @@
+{
+  "serverName": "🎰 BYTEBITS | Virtual Casino",
+  "tagline": "The neon casino. Free-play chips. Provably fair results.",
+  "roles": [
+    {
+      "name": "👑 Owner",
+      "color": "#e8c66a",
+      "hoist": true,
+      "permissions": "manual-owner-only"
+    },
+    {
+      "name": "🛡️ Administrator",
+      "color": "#e05c9b",
+      "hoist": true,
+      "permissions": "manual-admin-only"
+    },
+    {
+      "name": "🔨 Moderator",
+      "color": "#af76e9",
+      "hoist": true,
+      "permissions": "manual-configure"
+    },
+    {
+      "name": "💎 Diamond",
+      "color": "#b388ff",
+      "hoist": true
+    },
+    {
+      "name": "🔮 Platinum",
+      "color": "#8d93ff",
+      "hoist": true
+    },
+    {
+      "name": "🥇 Gold",
+      "color": "#e8c66a",
+      "hoist": true
+    },
+    {
+      "name": "🥈 Silver",
+      "color": "#aab0be",
+      "hoist": true
+    },
+    {
+      "name": "🥉 Bronze",
+      "color": "#a66d4b",
+      "hoist": true
+    },
+    {
+      "name": "🎮 Player",
+      "color": "#a14df5"
+    },
+    {
+      "name": "📢 Events Ping",
+      "color": "#ff60c9"
+    },
+    {
+      "name": "🔕 No Event Pings",
+      "color": "#757575"
+    }
+  ],
+  "categories": [
+    {
+      "name": "📌 START HERE",
+      "channels": [
+        {
+          "name": "👋・welcome",
+          "topic": "Start here. Learn what ByteBits is and how to play.",
+          "readOnly": true
+        },
+        {
+          "name": "📜・rules",
+          "topic": "Free-play chips, no deposits, no withdrawals, no real-world prizes.",
+          "readOnly": true
+        },
+        {
+          "name": "📣・announcements",
+          "topic": "Release notes, maintenance and feature announcements.",
+          "readOnly": true
+        },
+        {
+          "name": "🎭・roles",
+          "topic": "Opt in to events pings and cosmetic roles.",
+          "readOnly": true
+        },
+        {
+          "name": "📚・how-to-play",
+          "topic": "Command list, fairness guide and game rules.",
+          "readOnly": true
+        },
+        {
+          "name": "🔗・verified-links",
+          "topic": "Official ByteBits bot, documentation, and fairness site links.",
+          "readOnly": true
+        }
+      ]
+    },
+    {
+      "name": "🎰 CASINO FLOOR",
+      "channels": [
+        {
+          "name": "🏠・casino-lobby",
+          "topic": "Use /casino to open the interactive ByteBits lobby."
+        },
+        {
+          "name": "🎰・slots",
+          "topic": "Virtual-chip slots and machine designs."
+        },
+        {
+          "name": "🪙・coinflip",
+          "topic": "Provably fair heads or tails."
+        },
+        {
+          "name": "🎲・dice",
+          "topic": "Dice probability games with disclosed odds."
+        },
+        {
+          "name": "🔴・roulette",
+          "topic": "Single-zero roulette. Disclosed 37-pocket odds."
+        },
+        {
+          "name": "🃏・blackjack",
+          "topic": "Future: live dealer-style blackjack Activity."
+        },
+        {
+          "name": "♠️・poker-tables",
+          "topic": "Future: peer-to-peer social poker tables."
+        },
+        {
+          "name": "💥・crash",
+          "topic": "Future: graphical crash Activity with audited math."
+        },
+        {
+          "name": "🪙・coinflip-duels",
+          "topic": "PvP coinflip: create, join, challenge; 5% pot fee disclosed."
+        },
+        {
+          "name": "🤖・coinflip-house",
+          "topic": "Challenge the free-play ByteBits House Dealer."
+        },
+        {
+          "name": "🤝・open-matches",
+          "topic": "Open social virtual-chip matches waiting for opponents."
+        }
+      ]
+    },
+    {
+      "name": "🛡️ FAIRNESS & ODDS",
+      "channels": [
+        {
+          "name": "🔎・verify-your-bet",
+          "topic": "Verify your settled round at the official fairness website."
+        },
+        {
+          "name": "📊・odds-and-payouts",
+          "topic": "Current and archived immutable paytables, house edges and rounding."
+        },
+        {
+          "name": "🛡️・provably-fair-guide",
+          "topic": "Server commitments, client seeds, per-round verification."
+        },
+        {
+          "name": "📢・fairness-updates",
+          "topic": "Algorithm and paytable change notices.",
+          "readOnly": true
+        },
+        {
+          "name": "🧮・house-edge-explained",
+          "topic": "Coinflip fees and expected value explained."
+        }
+      ]
+    },
+    {
+      "name": "💰 THE VAULT",
+      "channels": [
+        {
+          "name": "💳・wallet",
+          "topic": "See your virtual-chip balance and ledger."
+        },
+        {
+          "name": "🎁・daily-rewards",
+          "topic": "Claim a free daily chip allotment."
+        },
+        {
+          "name": "🧾・transaction-history",
+          "topic": "Use commands for private transaction history."
+        },
+        {
+          "name": "💹・crypto-price-index",
+          "topic": "Live BTC price reference only; SC is not crypto."
+        },
+        {
+          "name": "🧿・provably-fair",
+          "topic": "Seed commitments, verification, probabilities, and RTP."
+        }
+      ]
+    },
+    {
+      "name": "🏆 VIP & COMMUNITY",
+      "channels": [
+        {
+          "name": "🏅・leaderboards",
+          "topic": "Virtual-chip balances, XP, and seasonal ranks."
+        },
+        {
+          "name": "🌟・vip-lounge",
+          "topic": "VIP cosmetic titles and progression."
+        },
+        {
+          "name": "🎯・challenges",
+          "topic": "Daily and weekly skill/participation missions."
+        },
+        {
+          "name": "🎉・events",
+          "topic": "Community events without prizes of real-world value."
+        },
+        {
+          "name": "💬・general",
+          "topic": "Chat, feedback, and community."
+        },
+        {
+          "name": "📸・big-wins",
+          "topic": "Optional win cards; no shaming losses."
+        }
+      ]
+    },
+    {
+      "name": "🆘 SUPPORT & TRUST",
+      "channels": [
+        {
+          "name": "🎫・support",
+          "topic": "Report problems privately through support forms."
+        },
+        {
+          "name": "🐞・bug-reports",
+          "topic": "Structured reproducible bug reports."
+        },
+        {
+          "name": "💡・suggestions",
+          "topic": "Feature suggestions, reactions and voting."
+        },
+        {
+          "name": "🛑・responsible-play",
+          "topic": "Session limits, self-pause, probability disclosures."
+        },
+        {
+          "name": "📊・status",
+          "topic": "Uptime, incidents, and maintenance notices.",
+          "readOnly": true
+        },
+        {
+          "name": "🧾・report-a-round",
+          "topic": "Report a specific round ID or fairness proof mismatch."
+        }
+      ]
+    },
+    {
+      "name": "🔒 STAFF ONLY",
+      "staffOnly": true,
+      "channels": [
+        {
+          "name": "🛠️・admin-panel",
+          "topic": "Operator controls and safe configuration."
+        },
+        {
+          "name": "📈・analytics",
+          "topic": "Synthetic economy metrics and incidents."
+        },
+        {
+          "name": "🧩・bot-logs",
+          "topic": "Bot structured event and error logs."
+        },
+        {
+          "name": "🚨・fraud-flags",
+          "topic": "Abuse reports and suspicious behavior."
+        },
+        {
+          "name": "📝・staff-chat",
+          "topic": "Private operations discussion."
+        },
+        {
+          "name": "🛡️・fairness-incidents",
+          "topic": "Alerts for verification failures or immutable round inconsistencies."
+        }
+      ]
+    },
+    {
+      "name": "🔊 VOICE LOUNGES",
+      "channels": [
+        {
+          "name": "🎰 Casino Lounge",
+          "type": "voice"
+        },
+        {
+          "name": "♠️ Poker Table 1",
+          "type": "voice"
+        },
+        {
+          "name": "♠️ Poker Table 2",
+          "type": "voice"
+        },
+        {
+          "name": "🎧 Night Lounge",
+          "type": "voice"
+        }
+      ]
+    }
+  ]
+}

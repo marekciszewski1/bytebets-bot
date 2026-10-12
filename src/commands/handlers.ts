@@ -12,7 +12,6 @@ import {
   InvalidClientSeedError,
   setClientSeed,
 } from "../db/players.js";
-import { coinflipPayout, flipCoinFair, type CoinSide } from "../games/coinflip.js";
 import { dicePayout, rollDiceFair } from "../games/dice.js";
 import {
   evaluateRouletteBet,
@@ -52,6 +51,8 @@ import {
 import { handleAdmin } from "./adminHandlers.js";
 import { handleOdds } from "./oddsHandlers.js";
 import { handleHistory } from "./historyHandlers.js";
+import { handlePlay } from "./playHandlers.js";
+import { handleCoinflipCommand } from "./coinflipHandlers.js";
 import { listRevealedCommitments } from "../db/fairness.js";
 
 const STARTING_HINT =
@@ -73,6 +74,10 @@ export async function handleCommand(
   switch (interaction.commandName) {
     case "ping":
       await handlePing(interaction);
+      break;
+    case "play":
+      if (!requireDatabase(interaction)) return;
+      await handlePlay(interaction);
       break;
     case "casino":
       if (!requireDatabase(interaction)) return;
@@ -127,7 +132,8 @@ export async function handleCommand(
       await handleVerify(interaction);
       break;
     case "coinflip":
-      await handleCoinflip(interaction);
+      if (!requireDatabase(interaction)) return;
+      await handleCoinflipCommand(interaction);
       break;
     case "dice":
       await handleDice(interaction);
@@ -370,69 +376,6 @@ async function handleVerify(interaction: ChatInputCommandInteraction): Promise<v
   );
 
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-}
-
-async function handleCoinflip(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!requireDatabase(interaction)) return;
-
-  const amount = interaction.options.getInteger("amount", true);
-  const side = interaction.options.getString("side", true) as CoinSide;
-  const ctx = await prepareFairPlay(interaction);
-
-  const { outcome, digest } = flipCoinFair(
-    ctx.serverSeed,
-    ctx.clientSeed,
-    ctx.nonce,
-    0
-  );
-  const won = outcome === side;
-  const payout = coinflipPayout(amount, won);
-
-  try {
-    const { newBalance, profit } = await recordBetAndTrack({
-      discordId: interaction.user.id,
-      username: usernameFrom(interaction),
-      game: "coinflip",
-      wager: amount,
-      payout,
-      expectedNonce: ctx.nonce,
-      won,
-      metadata: {
-        ...baseFairMetadata({
-          serverSeedHash: ctx.serverSeedHash,
-          clientSeed: ctx.clientSeed,
-          nonce: ctx.nonce,
-          game: "coinflip",
-          digest,
-        }),
-        pick: side,
-        outcome,
-        won,
-      },
-    });
-
-    const embed = resultEmbed(
-      won ? "Coinflip · win" : "Coinflip · loss",
-      `Landed **${outcome}** · you picked **${side}** · ${COINFLIP.winMultiplier}× on win`,
-      won
-    ).addFields(
-      { name: "Wager", value: `${amount}`, inline: true },
-      { name: "Payout", value: `${payout}`, inline: true },
-      { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
-      { name: "Balance", value: `${newBalance}`, inline: true }
-    );
-
-    await interaction.reply({ embeds: [embed] });
-  } catch (error) {
-    if (error instanceof InsufficientBalanceError) {
-      await interaction.reply({
-        content: `Not enough credits. ${STARTING_HINT}`,
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-    throw error;
-  }
 }
 
 async function handleDice(interaction: ChatInputCommandInteraction): Promise<void> {

@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "check:migrations": "tsx scripts/validate-migrations.ts",
     "verify:bet": "tsx scripts/verify-bet.ts",
+    "setup:server": "tsx scripts/bootstrap-server.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

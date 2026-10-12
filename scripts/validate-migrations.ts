@@ -13,14 +13,17 @@ const requiredMarkers = [
   "ensure_player",
   "admin_grant_credits",
   "claim_challenge_reward",
+  "public.rounds",
+  "public.coinflip_matches",
+  "public.escrow_journal",
 ];
 
 const files = readdirSync(migrationsDir)
   .filter((f) => f.endsWith(".sql"))
   .sort();
 
-if (files.length < 3) {
-  console.error("Expected at least 3 migration files (001 core, 002 fairness, 003 lobby).");
+if (files.length < 4) {
+  console.error("Expected at least 4 migrations (001–004).");
   process.exit(1);
 }
 
