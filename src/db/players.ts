@@ -10,6 +10,13 @@ export type PlayerRow = {
   last_daily_at: string | null;
   client_seed: string;
   nonce: number;
+  equipped_frame?: string;
+  equipped_badge?: string;
+  challenge_day?: string | null;
+  challenge_id?: string | null;
+  challenge_progress?: number;
+  challenge_completed?: boolean;
+  challenge_claimed?: boolean;
 };
 
 export type LeaderboardEntry = {
@@ -177,6 +184,104 @@ export async function fetchLeaderboard(
 
   if (error) throw error;
   return (data ?? []) as LeaderboardEntry[];
+}
+
+export async function fetchRecentBets(
+  discordId: string,
+  limit = 5
+): Promise<BetRow[]> {
+  const supabase = getSupabase();
+  const { data: player, error: playerError } = await supabase
+    .from("players")
+    .select("id")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+
+  if (playerError) throw playerError;
+  if (!player) return [];
+
+  const { data, error } = await supabase
+    .from("bets")
+    .select("id, game, wager, payout, profit, metadata, created_at")
+    .eq("player_id", player.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as BetRow[];
+}
+
+export async function setEquippedBadge(
+  discordId: string,
+  username: string,
+  badgeId: string
+): Promise<PlayerRow> {
+  const supabase = getSupabase();
+  await ensurePlayer(discordId, username);
+  const { data, error } = await supabase
+    .from("players")
+    .update({ equipped_badge: badgeId })
+    .eq("discord_id", discordId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as PlayerRow;
+}
+
+export async function adminGrantCredits(input: {
+  targetDiscordId: string;
+  targetUsername: string;
+  amount: number;
+}): Promise<number> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc("admin_grant_credits", {
+    p_target_discord_id: input.targetDiscordId,
+    p_target_username: input.targetUsername,
+    p_amount: input.amount,
+    p_reason: "admin_grant",
+  });
+  if (error) {
+    if (error.message.includes("invalid_grant_amount")) {
+      throw new InvalidGrantAmountError();
+    }
+    throw error;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return Number(row.new_balance);
+}
+
+export class InvalidGrantAmountError extends Error {
+  constructor() {
+    super("invalid_grant_amount");
+  }
+}
+
+export async function logAdminAction(input: {
+  adminDiscordId: string;
+  action: string;
+  targetDiscordId?: string;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from("admin_actions").insert({
+    admin_discord_id: input.adminDiscordId,
+    action: input.action,
+    target_discord_id: input.targetDiscordId ?? null,
+    payload: input.payload ?? {},
+  });
+  if (error) throw error;
+}
+
+export async function inspectPlayer(discordId: string): Promise<PlayerRow | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("players")
+    .select("*")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PlayerRow | null) ?? null;
 }
 
 export async function fetchBetById(

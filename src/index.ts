@@ -2,6 +2,11 @@ import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { handleCommand } from "./commands/handlers.js";
 import { handleMinesButton } from "./commands/minesHandlers.js";
+import {
+  handleLobbyButton,
+  handleLobbyGameSelect,
+  handleProfileBadgeSelect,
+} from "./commands/lobbyHandlers.js";
 import { isSupabaseConfigured } from "./db/supabase.js";
 import { ensureActiveServerSeed } from "./fairness/serverSeed.js";
 
@@ -38,9 +43,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    if (interaction.isButton() && interaction.customId.startsWith("mines:")) {
-      await handleMinesButton(interaction);
-      return;
+    if (interaction.isButton()) {
+      if (interaction.customId.startsWith("mines:")) {
+        await handleMinesButton(interaction);
+        return;
+      }
+      if (interaction.customId.startsWith("lobby:")) {
+        await handleLobbyButton(interaction);
+        return;
+      }
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId === "lobby:game-select") {
+        await handleLobbyGameSelect(interaction);
+        return;
+      }
+      if (interaction.customId === "profile:badge-select") {
+        await handleProfileBadgeSelect(interaction);
+        return;
+      }
     }
   } catch (error) {
     console.error(error);

@@ -6,7 +6,7 @@ ByteBits is a **premium Discord virtual casino**: play-money credits only, no re
 
 ## Phases
 
-### P0 — Foundation (current)
+### P0 — Foundation (complete)
 
 **Goal:** Single authoritative sources for odds, payouts, balances, and fairness verification; four hardened games; tests and migrations.
 
@@ -20,9 +20,19 @@ ByteBits is a **premium Discord virtual casino**: play-money credits only, no re
 | Tests | Unit tests (RNG, paytables, verify); security tests (wager bounds); migration file checks |
 | CI | `tsc`, `vitest`, migration validator |
 
-### P1 — Lobby & economy UX
+### P1 — Lobby & economy UX (complete in repo)
 
-Full slash-command spec: `/casino` lobby, wallet, profile, free rewards, VIP cosmetics (no pay-to-win), leaderboards, daily challenges, admin-safe tools.
+| Acceptance criterion | Requirement |
+|---------------------|-------------|
+| Lobby | `/casino` embed with buttons + game select menu |
+| Wallet | `/wallet` with recent bets |
+| Profile | `/profile` VIP tier + cosmetic badge equip (select menu) |
+| Challenges | `/challenge view` / `claim` with DB-backed progress |
+| Mines | Sessions persisted in `mines_sessions` (survives restart) |
+| Admin | `/admin grant` / `inspect` gated by `ADMIN_DISCORD_IDS` + audit log |
+| Migration | `003_p1_lobby.sql` |
+
+Remaining for later polish: modals for in-lobby quick bets, full command parity with product spec appendix.
 
 ### P2 — Provably fair transparency
 

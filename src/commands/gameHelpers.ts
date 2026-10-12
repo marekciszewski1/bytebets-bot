@@ -1,9 +1,11 @@
-import { ChatInputCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction, Interaction } from "discord.js";
 import { PAYTABLE_VERSION } from "../paytables/v1.js";
 import { ensurePlayer, recordBet } from "../db/players.js";
+import { bumpChallengeProgress } from "../db/challenges.js";
 import { ensureActiveServerSeed } from "../fairness/serverSeed.js";
 
-export function usernameFrom(interaction: ChatInputCommandInteraction): string {
+export function usernameFrom(interaction: Interaction): string {
+  if (!interaction.user) return "player";
   return interaction.user.displayName ?? interaction.user.username;
 }
 
@@ -37,6 +39,29 @@ export function baseFairMetadata(input: {
     digest: input.digest,
     game: input.game,
   };
+}
+
+export async function recordBetAndTrack(input: {
+  discordId: string;
+  username: string;
+  game: string;
+  wager: number;
+  payout: number;
+  expectedNonce: number;
+  won: boolean;
+  metadata?: Record<string, unknown>;
+}): Promise<{ newBalance: number; profit: number; usedNonce: number }> {
+  const result = await recordBet(input);
+  try {
+    await bumpChallengeProgress({
+      discordId: input.discordId,
+      wager: input.wager,
+      won: input.won,
+    });
+  } catch {
+    // Challenge columns may be missing if migration 003 not applied yet.
+  }
+  return result;
 }
 
 export { recordBet };

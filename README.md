@@ -19,13 +19,19 @@ flowchart LR
 2. Supabase — run migrations in order:
    - [supabase/migrations/001_bytebets_core.sql](supabase/migrations/001_bytebets_core.sql)
    - [supabase/migrations/002_fairness_and_nonce.sql](supabase/migrations/002_fairness_and_nonce.sql)
+   - [supabase/migrations/003_p1_lobby.sql](supabase/migrations/003_p1_lobby.sql)
 3. Copy `.env.example` → `.env` and fill Discord + Supabase vars.
 4. `npm install && npm run register-commands && npm run dev`
 
-## Commands (P0)
+## Commands (P0 + P1)
 
 | Command | Description |
 |---------|-------------|
+| `/casino` | Interactive lobby (buttons + game menu) |
+| `/wallet` | Balance + recent bets |
+| `/profile` | VIP tier + badge cosmetics |
+| `/challenge` | Daily challenge view / claim |
+| `/admin` | Grant credits / inspect (env allowlist) |
 | `/help` | Lobby overview |
 | `/balance` | Credits, wagered, PNL |
 | `/daily` | +500 credits / 24h |

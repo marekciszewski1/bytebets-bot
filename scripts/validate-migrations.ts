@@ -7,16 +7,20 @@ const requiredMarkers = [
   "public.players",
   "public.bets",
   "public.fairness_commitments",
+  "public.mines_sessions",
+  "public.admin_actions",
   "record_bet",
   "ensure_player",
+  "admin_grant_credits",
+  "claim_challenge_reward",
 ];
 
 const files = readdirSync(migrationsDir)
   .filter((f) => f.endsWith(".sql"))
   .sort();
 
-if (files.length < 2) {
-  console.error("Expected at least 2 migration files (001 + 002 fairness).");
+if (files.length < 3) {
+  console.error("Expected at least 3 migration files (001 core, 002 fairness, 003 lobby).");
   process.exit(1);
 }
 
