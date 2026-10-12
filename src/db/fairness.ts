@@ -29,3 +29,20 @@ export async function activateCommitment(
   if (error) throw error;
   return data as FairnessCommitmentRow;
 }
+
+export async function listRevealedCommitments(
+  limit = 10
+): Promise<FairnessCommitmentRow[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("fairness_commitments")
+    .select("*")
+    .eq("active", false)
+    .not("revealed_at", "is", null)
+    .not("server_seed", "is", null)
+    .order("revealed_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data ?? []) as FairnessCommitmentRow[];
+}

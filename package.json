@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:migrations": "tsx scripts/validate-migrations.ts",
+    "verify:bet": "tsx scripts/verify-bet.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

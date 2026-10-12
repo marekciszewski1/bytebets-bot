@@ -39,7 +39,11 @@ flowchart LR
 | `/fairness` | Server seed hash + your client seed / nonce |
 | `/seed` | Set client seed |
 | `/paytable` | Published v1 odds |
+| `/odds` | Win probabilities and theoretical RTP |
+| `/fairness active` / `revealed` | Active hash or archived seeds |
+| `/history list` / `export` | Bet history + JSON for offline verify |
 | `/verify` | Replay-verify a bet with revealed server seed |
+| `/admin rotate-seed` | Reveal seed & rotate commitment (allowlist) |
 | `/coinflip` | ~1.90× on win |
 | `/dice` | ~5.70× on win |
 | `/roulette` | European wheel |
@@ -52,6 +56,7 @@ flowchart LR
 npm run typecheck
 npm run check:migrations
 npm test
+npm run verify:bet -- --seed YOUR_SEED --file ./export.json
 ```
 
 Engineering phases and acceptance criteria: [CURSOR_MASTER_PROMPT.md](CURSOR_MASTER_PROMPT.md).

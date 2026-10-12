@@ -21,6 +21,7 @@ import {
 import { challengeProgressLabel } from "../challenges/daily.js";
 import { baseEmbed } from "../embeds/casino.js";
 import { PAYTABLE_VERSION, TARGET_RTP, COINFLIP, DICE, MINES, ROULETTE } from "../paytables/v1.js";
+import { formatOddsEmbedDescription } from "../paytables/oddsPublic.js";
 import { ensureActiveServerSeed } from "../fairness/serverSeed.js";
 import { tierForWagered, canUseBadge, COSMETIC_BADGES, VIP_TIERS } from "../vip/tiers.js";
 import { casinoLobbyComponents, casinoLobbyEmbed, profileBadgeSelect } from "./lobbyUi.js";
@@ -262,6 +263,13 @@ export async function handleLobbyButton(interaction: ButtonInteraction): Promise
       ].join("\n");
       await interaction.reply({
         embeds: [baseEmbed("Paytable").setDescription(lines)],
+        flags: MessageFlags.Ephemeral,
+      });
+      break;
+    }
+    case "odds": {
+      await interaction.reply({
+        embeds: [baseEmbed("Public odds").setDescription(formatOddsEmbedDescription())],
         flags: MessageFlags.Ephemeral,
       });
       break;

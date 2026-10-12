@@ -34,9 +34,15 @@ ByteBits is a **premium Discord virtual casino**: play-money credits only, no re
 
 Remaining for later polish: modals for in-lobby quick bets, full command parity with product spec appendix.
 
-### P2 — Provably fair transparency
+### P2 — Provably fair transparency (complete in repo)
 
-Public odds page data in bot (`/odds`), bet history export, seed rotation admin flow, replay CLI/script.
+| Acceptance criterion | Requirement |
+|---------------------|-------------|
+| Odds | `/odds` public win %, payouts, theoretical RTP (from paytable v1) |
+| History | `/history list` · `/history export` JSON attachment |
+| Archive | `/fairness revealed` lists published server seeds |
+| Admin | `/admin rotate-seed` reveals active seed and commits a new hash |
+| CLI | `npm run verify:bet -- --seed … --file export.json` |
 
 ### P3 — Discord Activity
 
