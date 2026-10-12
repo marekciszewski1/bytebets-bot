@@ -3,14 +3,11 @@ import {
   ChatInputCommandInteraction,
   MessageFlags,
 } from "discord.js";
-import {
-  InsufficientBalanceError,
-  NonceMismatchError,
-} from "../db/players.js";
+import { InsufficientBalanceError, NonceMismatchError } from "../db/players.js";
 import {
   baseFairMetadata,
   prepareFairPlay,
-  recordBet,
+  recordBetAndTrack,
   usernameFrom,
 } from "./gameHelpers.js";
 import { PAYTABLE_VERSION } from "../paytables/v1.js";
@@ -18,15 +15,15 @@ import {
   createMinesSession,
   endMinesSession,
   getMinesSession,
+  getMinesSessionForUser,
+  persistMinesSession,
 } from "../games/minesSessions.js";
 import { isMine, minesCashoutPayout, safeRevealCount } from "../games/mines.js";
 import { minesComponents, minesEmbed, minesGridAscii } from "./minesUi.js";
 import { resultEmbed } from "../embeds/casino.js";
 
-const activeByUser = new Map<string, string>();
-
 export function clearMinesActiveForTests(): void {
-  activeByUser.clear();
+  /* sessions live in DB / memory store */
 }
 
 export async function handleMinesStart(
@@ -35,7 +32,8 @@ export async function handleMinesStart(
   const amount = interaction.options.getInteger("amount", true);
   const mineCount = interaction.options.getInteger("mines", true);
 
-  if (activeByUser.has(interaction.user.id)) {
+  const active = await getMinesSessionForUser(interaction.user.id);
+  if (active?.active) {
     await interaction.reply({
       content: "You already have an active mines game. Finish it before starting another.",
       flags: MessageFlags.Ephemeral,
@@ -48,7 +46,7 @@ export async function handleMinesStart(
     throw new InsufficientBalanceError();
   }
 
-  const session = createMinesSession({
+  const session = await createMinesSession({
     discordId: interaction.user.id,
     wager: amount,
     mineCount,
@@ -57,8 +55,6 @@ export async function handleMinesStart(
     nonce: ctx.nonce,
     serverSeedHash: ctx.serverSeedHash,
   });
-
-  activeByUser.set(interaction.user.id, session.id);
 
   await interaction.reply({
     embeds: [
@@ -75,7 +71,7 @@ export async function handleMinesButton(
   const action = parts[1];
   const sessionId = parts[2];
 
-  const session = getMinesSession(sessionId);
+  const session = await getMinesSession(sessionId);
   if (!session || !session.active) {
     await interaction.reply({
       content: "This mines game has ended or expired.",
@@ -103,16 +99,17 @@ export async function handleMinesButton(
 
     if (isMine(session, tile)) {
       session.active = false;
-      activeByUser.delete(interaction.user.id);
+      await persistMinesSession(session);
 
       try {
-        await recordBet({
+        await recordBetAndTrack({
           discordId: interaction.user.id,
-          username: usernameFrom(interaction as unknown as ChatInputCommandInteraction),
+          username: usernameFrom(interaction),
           game: "mines",
           wager: session.wager,
           payout: 0,
           expectedNonce: session.nonce,
+          won: false,
           metadata: {
             ...baseFairMetadata({
               serverSeedHash: session.serverSeedHash,
@@ -130,16 +127,18 @@ export async function handleMinesButton(
       } catch (error) {
         if (error instanceof NonceMismatchError) {
           await interaction.update({
-            embeds: [resultEmbed("Mines", "Session expired (nonce drift). Wager not settled.", false)],
+            embeds: [
+              resultEmbed("Mines", "Session expired (nonce drift). Wager not settled.", false),
+            ],
             components: [],
           });
-          endMinesSession(sessionId);
+          await endMinesSession(sessionId, session.discordId);
           return;
         }
         throw error;
       }
 
-      endMinesSession(sessionId);
+      await endMinesSession(sessionId, session.discordId);
       const desc = `${minesGridAscii(session, true)}\n\n**Boom!** You hit a mine.`;
       await interaction.update({
         embeds: [resultEmbed("Mines — loss", desc, false)],
@@ -148,6 +147,7 @@ export async function handleMinesButton(
       return;
     }
 
+    await persistMinesSession(session);
     await interaction.update({
       embeds: [minesEmbed(session, "Safe! Keep going or cash out.")],
       components: minesComponents(session),
@@ -167,15 +167,16 @@ export async function handleMinesButton(
 
     const payout = minesCashoutPayout(session.wager, session.mineCount, reveals);
     session.active = false;
-    activeByUser.delete(interaction.user.id);
+    await persistMinesSession(session);
 
-    const { newBalance, profit } = await recordBet({
+    const { newBalance, profit } = await recordBetAndTrack({
       discordId: interaction.user.id,
-      username: usernameFrom(interaction as unknown as ChatInputCommandInteraction),
+      username: usernameFrom(interaction),
       game: "mines",
       wager: session.wager,
       payout,
       expectedNonce: session.nonce,
+      won: true,
       metadata: {
         ...baseFairMetadata({
           serverSeedHash: session.serverSeedHash,
@@ -192,7 +193,7 @@ export async function handleMinesButton(
       },
     });
 
-    endMinesSession(sessionId);
+    await endMinesSession(sessionId, session.discordId);
     const desc = `${minesGridAscii(session, false)}\n\nCashed out at **${payout}** credits.`;
     const embed = resultEmbed("Mines — win", desc, true).addFields(
       { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },

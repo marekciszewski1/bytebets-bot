@@ -37,12 +37,19 @@ import { verifyServerSeed } from "../fairness/commitment.js";
 import {
   baseFairMetadata,
   prepareFairPlay,
-  recordBet,
+  recordBetAndTrack,
   usernameFrom,
 } from "./gameHelpers.js";
 import { ensureActiveServerSeed } from "../fairness/serverSeed.js";
 import { handleMinesStart } from "./minesHandlers.js";
 import { COLORS } from "../config/branding.js";
+import {
+  handleCasinoCommand,
+  handleChallengeCommand,
+  handleProfileCommand,
+  handleWalletCommand,
+} from "./lobbyHandlers.js";
+import { handleAdmin } from "./adminHandlers.js";
 
 const STARTING_HINT =
   "Play-money only · `/daily` for free credits · `/paytable` for odds";
@@ -63,6 +70,26 @@ export async function handleCommand(
   switch (interaction.commandName) {
     case "ping":
       await handlePing(interaction);
+      break;
+    case "casino":
+      if (!requireDatabase(interaction)) return;
+      await handleCasinoCommand(interaction);
+      break;
+    case "wallet":
+      if (!requireDatabase(interaction)) return;
+      await handleWalletCommand(interaction);
+      break;
+    case "profile":
+      if (!requireDatabase(interaction)) return;
+      await handleProfileCommand(interaction);
+      break;
+    case "challenge":
+      if (!requireDatabase(interaction)) return;
+      await handleChallengeCommand(interaction);
+      break;
+    case "admin":
+      if (!requireDatabase(interaction)) return;
+      await handleAdmin(interaction);
       break;
     case "help":
       await handleHelp(interaction);
@@ -123,6 +150,7 @@ async function handleHelp(interaction: ChatInputCommandInteraction): Promise<voi
       [
         "Premium **virtual** casino for Discord — provably fair, published paytables.",
         "",
+        "**Lobby:** `/casino` · `/wallet` · `/profile` · `/challenge`",
         "**Wallet:** `/balance` · `/daily` · `/leaderboard`",
         "**Fairness:** `/fairness` · `/seed` · `/paytable` · `/verify`",
         "**Games:** `/coinflip` · `/dice` · `/roulette` · `/mines start`",
@@ -325,13 +353,14 @@ async function handleCoinflip(interaction: ChatInputCommandInteraction): Promise
   const payout = coinflipPayout(amount, won);
 
   try {
-    const { newBalance, profit } = await recordBet({
+    const { newBalance, profit } = await recordBetAndTrack({
       discordId: interaction.user.id,
       username: usernameFrom(interaction),
       game: "coinflip",
       wager: amount,
       payout,
       expectedNonce: ctx.nonce,
+      won,
       metadata: {
         ...baseFairMetadata({
           serverSeedHash: ctx.serverSeedHash,
@@ -382,13 +411,14 @@ async function handleDice(interaction: ChatInputCommandInteraction): Promise<voi
   const payout = dicePayout(amount, won);
 
   try {
-    const { newBalance, profit } = await recordBet({
+    const { newBalance, profit } = await recordBetAndTrack({
       discordId: interaction.user.id,
       username: usernameFrom(interaction),
       game: "dice",
       wager: amount,
       payout,
       expectedNonce: ctx.nonce,
+      won,
       metadata: {
         ...baseFairMetadata({
           serverSeedHash: ctx.serverSeedHash,
@@ -457,13 +487,14 @@ async function handleRoulette(interaction: ChatInputCommandInteraction): Promise
   const payout = roulettePayout(amount, betType, won, pocket);
 
   try {
-    const { newBalance, profit } = await recordBet({
+    const { newBalance, profit } = await recordBetAndTrack({
       discordId: interaction.user.id,
       username: usernameFrom(interaction),
       game: "roulette",
       wager: amount,
       payout,
       expectedNonce: ctx.nonce,
+      won,
       metadata: {
         ...baseFairMetadata({
           serverSeedHash: ctx.serverSeedHash,

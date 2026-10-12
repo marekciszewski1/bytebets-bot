@@ -8,6 +8,51 @@ export const commandBuilders = [
     .setName("help")
     .setDescription("ByteBits virtual casino overview"),
   new SlashCommandBuilder()
+    .setName("casino")
+    .setDescription("Open the casino lobby (buttons and game menu)"),
+  new SlashCommandBuilder()
+    .setName("wallet")
+    .setDescription("Wallet balance and recent bets"),
+  new SlashCommandBuilder()
+    .setName("profile")
+    .setDescription("VIP tier and cosmetic badge"),
+  new SlashCommandBuilder()
+    .setName("challenge")
+    .setDescription("Daily challenge progress and rewards")
+    .addSubcommand((sub) =>
+      sub.setName("view").setDescription("View today's challenge")
+    )
+    .addSubcommand((sub) =>
+      sub.setName("claim").setDescription("Claim completed challenge reward")
+    ),
+  new SlashCommandBuilder()
+    .setName("admin")
+    .setDescription("Safe admin tools (host-configured IDs only)")
+    .addSubcommand((sub) =>
+      sub
+        .setName("grant")
+        .setDescription("Grant play-money credits to a user")
+        .addStringOption((o) =>
+          o.setName("user_id").setDescription("Target Discord user ID").setRequired(true)
+        )
+        .addIntegerOption((o) =>
+          o
+            .setName("amount")
+            .setDescription("Credits to grant (1–1,000,000)")
+            .setRequired(true)
+            .setMinValue(1)
+            .setMaxValue(1_000_000)
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("inspect")
+        .setDescription("Inspect a player record")
+        .addStringOption((o) =>
+          o.setName("user_id").setDescription("Target Discord user ID").setRequired(true)
+        )
+    ),
+  new SlashCommandBuilder()
     .setName("balance")
     .setDescription("Show your credits, wagered volume, and PNL"),
   new SlashCommandBuilder()
