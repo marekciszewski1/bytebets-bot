@@ -37,3 +37,31 @@ export async function ensureActiveServerSeed(): Promise<ActiveSeed> {
 export function resetMemorySeedForTests(): void {
   memoryFallback = null;
 }
+
+export type SeedRotationResult = {
+  previous: { serverSeed: string; serverSeedHash: string } | null;
+  current: { serverSeed: string; serverSeedHash: string };
+};
+
+/** Deactivates current seed (revealed in DB) and activates a new commitment. */
+export async function rotateActiveServerSeed(): Promise<SeedRotationResult> {
+  let previous: SeedRotationResult["previous"] = null;
+
+  if (!isSupabaseConfigured()) {
+    previous = memoryFallback ? { ...memoryFallback } : null;
+    memoryFallback = createCommitment();
+    return { previous, current: memoryFallback };
+  }
+
+  const existing = await getActiveCommitment();
+  if (existing?.server_seed && existing.seed_hash) {
+    previous = {
+      serverSeed: existing.server_seed,
+      serverSeedHash: existing.seed_hash,
+    };
+  }
+
+  const created = createCommitment();
+  await activateCommitment(created.serverSeedHash, created.serverSeed);
+  return { previous, current: created };
+}

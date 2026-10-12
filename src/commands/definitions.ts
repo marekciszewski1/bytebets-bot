@@ -51,6 +51,11 @@ export const commandBuilders = [
         .addStringOption((o) =>
           o.setName("user_id").setDescription("Target Discord user ID").setRequired(true)
         )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("rotate-seed")
+        .setDescription("Reveal current server seed and activate a new commitment")
     ),
   new SlashCommandBuilder()
     .setName("balance")
@@ -73,7 +78,43 @@ export const commandBuilders = [
     ),
   new SlashCommandBuilder()
     .setName("fairness")
-    .setDescription("View provably fair server commitment and your seeds"),
+    .setDescription("Provably fair seeds and commitment archive")
+    .addSubcommand((sub) =>
+      sub.setName("active").setDescription("Active server seed hash and your client seed")
+    )
+    .addSubcommand((sub) =>
+      sub.setName("revealed").setDescription("Recently revealed server seeds for verification")
+    ),
+  new SlashCommandBuilder()
+    .setName("odds")
+    .setDescription("Public win probabilities, payouts, and theoretical RTP"),
+  new SlashCommandBuilder()
+    .setName("history")
+    .setDescription("Your bet history and provably fair export")
+    .addSubcommand((sub) =>
+      sub
+        .setName("list")
+        .setDescription("List recent bets with verification hints")
+        .addIntegerOption((o) =>
+          o
+            .setName("limit")
+            .setDescription("Number of bets (max 25)")
+            .setMinValue(1)
+            .setMaxValue(25)
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("export")
+        .setDescription("Download JSON export for offline verification")
+        .addIntegerOption((o) =>
+          o
+            .setName("limit")
+            .setDescription("Max bets in file (max 200)")
+            .setMinValue(1)
+            .setMaxValue(200)
+        )
+    ),
   new SlashCommandBuilder()
     .setName("seed")
     .setDescription("Set your client seed (max 64 characters)")

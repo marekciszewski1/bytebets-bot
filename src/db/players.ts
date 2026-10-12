@@ -186,6 +186,30 @@ export async function fetchLeaderboard(
   return (data ?? []) as LeaderboardEntry[];
 }
 
+export type BetExportRow = BetRow & {
+  server_seed_hash: string | null;
+  client_seed: string | null;
+  nonce: number | null;
+  paytable_version: string | null;
+};
+
+export async function fetchBetHistoryExport(
+  discordId: string,
+  limit = 200
+): Promise<BetExportRow[]> {
+  const bets = await fetchRecentBets(discordId, limit);
+  return bets.map((b) => {
+    const meta = b.metadata ?? {};
+    return {
+      ...b,
+      server_seed_hash: (meta.server_seed_hash as string) ?? null,
+      client_seed: (meta.client_seed as string) ?? null,
+      nonce: meta.nonce !== undefined ? Number(meta.nonce) : null,
+      paytable_version: (meta.paytable_version as string) ?? null,
+    };
+  });
+}
+
 export async function fetchRecentBets(
   discordId: string,
   limit = 5

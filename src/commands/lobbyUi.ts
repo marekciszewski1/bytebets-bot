@@ -57,6 +57,10 @@ export function casinoLobbyComponents(): Array<
     new ButtonBuilder()
       .setCustomId("lobby:paytable")
       .setLabel("Paytable")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("lobby:odds")
+      .setLabel("Odds")
       .setStyle(ButtonStyle.Secondary)
   );
 

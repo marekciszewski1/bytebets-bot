@@ -50,6 +50,9 @@ import {
   handleWalletCommand,
 } from "./lobbyHandlers.js";
 import { handleAdmin } from "./adminHandlers.js";
+import { handleOdds } from "./oddsHandlers.js";
+import { handleHistory } from "./historyHandlers.js";
+import { listRevealedCommitments } from "../db/fairness.js";
 
 const STARTING_HINT =
   "Play-money only · `/daily` for free credits · `/paytable` for odds";
@@ -104,7 +107,15 @@ export async function handleCommand(
       await handleLeaderboard(interaction);
       break;
     case "fairness":
+      if (!requireDatabase(interaction)) return;
       await handleFairness(interaction);
+      break;
+    case "odds":
+      await handleOdds(interaction);
+      break;
+    case "history":
+      if (!requireDatabase(interaction)) return;
+      await handleHistory(interaction);
       break;
     case "seed":
       await handleSeed(interaction);
@@ -152,7 +163,7 @@ async function handleHelp(interaction: ChatInputCommandInteraction): Promise<voi
         "",
         "**Lobby:** `/casino` · `/wallet` · `/profile` · `/challenge`",
         "**Wallet:** `/balance` · `/daily` · `/leaderboard`",
-        "**Fairness:** `/fairness` · `/seed` · `/paytable` · `/verify`",
+        "**Fairness:** `/fairness active` · `/fairness revealed` · `/odds` · `/history` · `/verify`",
         "**Games:** `/coinflip` · `/dice` · `/roulette` · `/mines start`",
         "",
         "No real-money deposits, cashouts, or redemption.",
@@ -232,12 +243,37 @@ async function handleLeaderboard(interaction: ChatInputCommandInteraction): Prom
 }
 
 async function handleFairness(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!requireDatabase(interaction)) return;
+  const sub = interaction.options.getSubcommand(true);
+
+  if (sub === "revealed") {
+    const rows = await listRevealedCommitments(10);
+    if (rows.length === 0) {
+      await interaction.reply({
+        content: "No revealed server seeds yet. Admins rotate with `/admin rotate-seed`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const lines = rows.map(
+      (r) =>
+        `**Hash** \`${r.seed_hash}\`\n**Seed** \`${r.server_seed}\`\n_Revealed ${r.revealed_at ?? "?"}_`
+    );
+
+    await interaction.reply({
+      embeds: [
+        baseEmbed("Revealed server seeds")
+          .setDescription(lines.join("\n\n"))
+          .setFooter({ text: "Use /verify with bet_id + matching server seed" }),
+      ],
+    });
+    return;
+  }
 
   const player = await ensurePlayer(interaction.user.id, usernameFrom(interaction));
   const active = await ensureActiveServerSeed();
 
-  const embed = baseEmbed("Provably fair")
+  const embed = baseEmbed("Provably fair · active")
     .addFields(
       {
         name: "Active server seed hash",
@@ -247,7 +283,7 @@ async function handleFairness(interaction: ChatInputCommandInteraction): Promise
       { name: "Next nonce", value: `${player.nonce}`, inline: true },
       {
         name: "Paytable",
-        value: `\`${PAYTABLE_VERSION}\` · target RTP ${(TARGET_RTP * 100).toFixed(0)}%`,
+        value: `\`${PAYTABLE_VERSION}\` · see \`/odds\` for RTP`,
       }
     )
     .setDescription(
