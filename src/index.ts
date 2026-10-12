@@ -8,6 +8,7 @@ import {
   handleProfileBadgeSelect,
 } from "./commands/lobbyHandlers.js";
 import { isSupabaseConfigured } from "./db/supabase.js";
+import { userFacingErrorMessage } from "./db/migrationHints.js";
 import { ensureActiveServerSeed } from "./fairness/serverSeed.js";
 import { startFairnessWebServer } from "./web/server.js";
 
@@ -93,8 +94,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
   } catch (error) {
-    console.error(error);
-    const message = "Something went wrong running that command.";
+    console.error("Interaction error:", error);
+    const message = userFacingErrorMessage(error);
     if (interaction.isRepliable()) {
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp({ content: message, flags: 64 });

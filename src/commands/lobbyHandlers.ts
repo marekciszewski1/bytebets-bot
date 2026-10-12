@@ -27,6 +27,8 @@ import { tierForWagered, canUseBadge, COSMETIC_BADGES, VIP_TIERS } from "../vip/
 import { casinoLobbyComponents, casinoLobbyEmbed, profileBadgeSelect } from "./lobbyUi.js";
 import { usernameFrom } from "./gameHelpers.js";
 import { COLORS } from "../config/branding.js";
+import { isSupabaseConfigured } from "../db/supabase.js";
+import { userFacingErrorMessage } from "../db/migrationHints.js";
 
 export async function handleCasinoCommand(
   interaction: ChatInputCommandInteraction
@@ -172,9 +174,18 @@ export async function handleChallengeCommand(
 }
 
 export async function handleLobbyButton(interaction: ButtonInteraction): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    await interaction.reply({
+      content: "Database not configured on the bot host (Supabase env vars).",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const action = interaction.customId.split(":")[1];
   const user = usernameFrom(interaction);
 
+  try {
   switch (action) {
     case "wallet": {
       const embed = await buildWalletEmbed(interaction.user.id, user);
@@ -276,6 +287,12 @@ export async function handleLobbyButton(interaction: ButtonInteraction): Promise
     }
     default:
       await interaction.reply({ content: "Unknown lobby action.", flags: MessageFlags.Ephemeral });
+  }
+  } catch (error) {
+    await interaction.reply({
+      content: userFacingErrorMessage(error),
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 

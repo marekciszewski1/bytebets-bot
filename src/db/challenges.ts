@@ -33,7 +33,12 @@ export async function syncDailyChallenge(player: PlayerRow): Promise<{
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.message.includes("challenge_day")) {
+        throw new Error("migration_003_required");
+      }
+      throw error;
+    }
     player = data as PlayerRow;
   } else if (!player.challenge_id) {
     await supabase

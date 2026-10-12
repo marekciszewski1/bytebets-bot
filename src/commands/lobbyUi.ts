@@ -69,7 +69,7 @@ export function casinoLobbyComponents(): Array<
       .setCustomId("lobby:game-select")
       .setPlaceholder("Choose a game")
       .addOptions(
-        { label: "Coinflip", value: "coinflip", description: "/coinflip amount side" },
+        { label: "Coinflip", value: "coinflip", description: "/coinflip bot or create/join PvP" },
         { label: "Dice", value: "dice", description: "/dice amount guess" },
         { label: "Roulette", value: "roulette", description: "/roulette amount bet" },
         { label: "Mines", value: "mines", description: "/mines start amount mines" }
