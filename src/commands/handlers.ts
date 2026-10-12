@@ -154,10 +154,20 @@ export async function handleCommand(
 
 async function handlePing(interaction: ChatInputCommandInteraction): Promise<void> {
   const sent = Date.now();
+  let schemaLine = "";
+  if (isSupabaseConfigured()) {
+    const { checkSchemaHealth } = await import("../db/schemaHealth.js");
+    const health = await checkSchemaHealth();
+    const failed = health.checks.filter((c) => !c.ok).map((c) => c.name);
+    schemaLine =
+      failed.length === 0
+        ? "\nDB schema: **OK** (001–004 probes passed)"
+        : `\nDB schema: **issues** — failing: ${failed.join(", ")} (run missing SQL migrations)`;
+  }
   await interaction.reply("Pong!");
   const latency = Date.now() - sent;
   await interaction.editReply(
-    `Pong! Round-trip: ${latency}ms · API: ${Math.round(interaction.client.ws.ping)}ms`
+    `Pong! Round-trip: ${latency}ms · API: ${Math.round(interaction.client.ws.ping)}ms${schemaLine}`
   );
 }
 
@@ -249,7 +259,7 @@ async function handleLeaderboard(interaction: ChatInputCommandInteraction): Prom
 }
 
 async function handleFairness(interaction: ChatInputCommandInteraction): Promise<void> {
-  const sub = interaction.options.getSubcommand(true);
+  const sub = interaction.options.getSubcommand(false) ?? "active";
 
   if (sub === "revealed") {
     const rows = await listRevealedCommitments(10);

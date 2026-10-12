@@ -141,6 +141,13 @@ export async function recordBet(input: {
     if (error.message.includes("nonce_mismatch")) {
       throw new NonceMismatchError();
     }
+    if (
+      error.message.includes("p_expected_nonce") ||
+      error.message.includes("Could not find the function") ||
+      error.message.includes("record_bet")
+    ) {
+      throw new Error("migration_002_required: " + error.message);
+    }
     throw error;
   }
 

@@ -146,6 +146,9 @@ export function startFairnessWebServer(port = Number(process.env.FAIRNESS_WEB_PO
       sendJson(res, 500, { error: "internal" });
     });
   });
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    console.warn(`Fairness web server failed on port ${port}: ${err.message}`);
+  });
   server.listen(port, () => {
     console.log(`ByteBits fairness site listening on :${port}`);
   });

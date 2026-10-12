@@ -18,20 +18,31 @@ export async function ensureActiveServerSeed(): Promise<ActiveSeed> {
     return memoryFallback;
   }
 
-  const existing = await getActiveCommitment();
-  if (existing?.server_seed && existing.seed_hash) {
-    if (!verifyServerSeed(existing.server_seed, existing.seed_hash)) {
-      throw new Error("Active fairness commitment failed hash check");
+  try {
+    const existing = await getActiveCommitment();
+    if (existing?.server_seed && existing.seed_hash) {
+      if (!verifyServerSeed(existing.server_seed, existing.seed_hash)) {
+        throw new Error("Active fairness commitment failed hash check");
+      }
+      return {
+        serverSeed: existing.server_seed,
+        serverSeedHash: existing.seed_hash,
+      };
     }
-    return {
-      serverSeed: existing.server_seed,
-      serverSeedHash: existing.seed_hash,
-    };
-  }
 
-  const created = createCommitment();
-  await activateCommitment(created.serverSeedHash, created.serverSeed);
-  return created;
+    const created = createCommitment();
+    await activateCommitment(created.serverSeedHash, created.serverSeed);
+    return created;
+  } catch (error) {
+    console.warn(
+      "Fairness DB unavailable (run migration 002?) — using in-memory seed for this process:",
+      error
+    );
+    if (!memoryFallback) {
+      memoryFallback = createCommitment();
+    }
+    return memoryFallback;
+  }
 }
 
 export function resetMemorySeedForTests(): void {

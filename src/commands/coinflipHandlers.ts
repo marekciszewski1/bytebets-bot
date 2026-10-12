@@ -18,7 +18,24 @@ import { baseEmbed } from "../embeds/casino.js";
 export async function handleCoinflipCommand(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
-  const sub = interaction.options.getSubcommand(true);
+  const sub = interaction.options.getSubcommand(false);
+  if (!sub) {
+    const amount = interaction.options.getInteger("amount");
+    const side = interaction.options.getString("side");
+    if (amount !== null && side) {
+      await interaction.reply({
+        content:
+          "Coinflip commands were updated. Re-run **`npm run register-commands`**, then use **`/coinflip bot`** (or create/join PvP).",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    await interaction.reply({
+      content: "Use **`/coinflip bot`**, **`/coinflip create`**, or **`/coinflip rules`**.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
   const guildId = interaction.guildId;
   if (!guildId) {
     await interaction.reply({
