@@ -1,32 +1,57 @@
 import {
   ChatInputCommandInteraction,
-  EmbedBuilder,
   MessageFlags,
 } from "discord.js";
 import {
   claimDaily,
   DailyNotReadyError,
   ensurePlayer,
+  fetchBetById,
   fetchLeaderboard,
   InsufficientBalanceError,
-  recordBet,
+  InvalidClientSeedError,
+  setClientSeed,
 } from "../db/players.js";
-import { coinflipPayout, flipCoin, type CoinSide } from "../games/coinflip.js";
-import { dicePayout, rollDice } from "../games/dice.js";
+import { coinflipPayout, flipCoinFair, type CoinSide } from "../games/coinflip.js";
+import { dicePayout, rollDiceFair } from "../games/dice.js";
+import {
+  evaluateRouletteBet,
+  pocketColor,
+  roulettePayout,
+  spinRouletteFair,
+  type RouletteBetType,
+} from "../games/roulette.js";
 import { isSupabaseConfigured } from "../db/supabase.js";
+import { baseEmbed, resultEmbed } from "../embeds/casino.js";
+import {
+  ALL_GAMES,
+  COINFLIP,
+  DICE,
+  MINES,
+  PAYTABLE_VERSION,
+  ROULETTE,
+  TARGET_RTP,
+} from "../paytables/v1.js";
+import { verifyBetReplay } from "../fairness/verify.js";
+import { verifyServerSeed } from "../fairness/commitment.js";
+import {
+  baseFairMetadata,
+  prepareFairPlay,
+  recordBet,
+  usernameFrom,
+} from "./gameHelpers.js";
+import { ensureActiveServerSeed } from "../fairness/serverSeed.js";
+import { handleMinesStart } from "./minesHandlers.js";
+import { COLORS } from "../config/branding.js";
 
 const STARTING_HINT =
-  "Play-money only — no real crypto yet. Run `/daily` if you need credits.";
-
-function usernameFrom(interaction: ChatInputCommandInteraction): string {
-  return interaction.user.displayName ?? interaction.user.username;
-}
+  "Play-money only · `/daily` for free credits · `/paytable` for odds";
 
 function requireDatabase(interaction: ChatInputCommandInteraction): boolean {
   if (isSupabaseConfigured()) return true;
   void interaction.reply({
     content:
-      "Database is not configured on the host. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, then run the SQL migration in `supabase/migrations/`.",
+      "Database is not configured. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, then run migrations in `supabase/migrations/`.",
     flags: MessageFlags.Ephemeral,
   });
   return false;
@@ -51,11 +76,29 @@ export async function handleCommand(
     case "leaderboard":
       await handleLeaderboard(interaction);
       break;
+    case "fairness":
+      await handleFairness(interaction);
+      break;
+    case "seed":
+      await handleSeed(interaction);
+      break;
+    case "paytable":
+      await handlePaytable(interaction);
+      break;
+    case "verify":
+      await handleVerify(interaction);
+      break;
     case "coinflip":
       await handleCoinflip(interaction);
       break;
     case "dice":
       await handleDice(interaction);
+      break;
+    case "roulette":
+      await handleRoulette(interaction);
+      break;
+    case "mines":
+      await handleMines(interaction);
       break;
     default:
       await interaction.reply({
@@ -75,20 +118,19 @@ async function handlePing(interaction: ChatInputCommandInteraction): Promise<voi
 }
 
 async function handleHelp(interaction: ChatInputCommandInteraction): Promise<void> {
-  const embed = new EmbedBuilder()
-    .setTitle("ByteBets — Discord community (play money)")
+  const embed = baseEmbed("Casino lobby")
     .setDescription(
       [
-        "Build the community first with **virtual credits**, leaderboards, and simple games.",
+        "Premium **virtual** casino for Discord — provably fair, published paytables.",
         "",
-        "**Economy:** `/balance` · `/daily` · `/leaderboard`",
-        "**Games (v1):** `/coinflip` · `/dice`",
-        "**Coming next:** mines, crash, roulette, blackjack, baccarat, plinko — then a website + regulated crypto rails if you go that route.",
+        "**Wallet:** `/balance` · `/daily` · `/leaderboard`",
+        "**Fairness:** `/fairness` · `/seed` · `/paytable` · `/verify`",
+        "**Games:** `/coinflip` · `/dice` · `/roulette` · `/mines start`",
         "",
-        "⚠️ Real-money gambling and branded slots (Sweet Bonanza, etc.) need **licenses and provider deals**. This bot does not include those.",
+        "No real-money deposits, cashouts, or redemption.",
       ].join("\n")
     )
-    .setColor(0x5865f2);
+    .setColor(COLORS.primary);
 
   await interaction.reply({ embeds: [embed] });
 }
@@ -100,15 +142,14 @@ async function handleBalance(interaction: ChatInputCommandInteraction): Promise<
   const pnl = player.total_profit;
   const pnlLabel = pnl >= 0 ? `+${pnl}` : `${pnl}`;
 
-  const embed = new EmbedBuilder()
-    .setTitle(`${usernameFrom(interaction)} — stats`)
+  const embed = baseEmbed("Wallet")
     .addFields(
       { name: "Balance", value: `${player.balance} credits`, inline: true },
       { name: "Total wagered", value: `${player.total_wagered}`, inline: true },
-      { name: "PNL (profit)", value: pnlLabel, inline: true }
+      { name: "PNL", value: pnlLabel, inline: true },
+      { name: "Next bet nonce", value: `${player.nonce}`, inline: true }
     )
-    .setFooter({ text: STARTING_HINT })
-    .setColor(0x57f287);
+    .setColor(COLORS.gold);
 
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
@@ -144,23 +185,127 @@ async function handleLeaderboard(interaction: ChatInputCommandInteraction): Prom
   const rows = await fetchLeaderboard(metric, 10);
 
   if (rows.length === 0) {
-    await interaction.reply("No players yet. Use `/daily` or `/coinflip` to get on the board.");
+    await interaction.reply("No players yet. Use `/daily` or play a game to appear.");
     return;
   }
 
   const lines = rows.map((row, index) => {
-    const value =
-      metric === "wagered" ? row.total_wagered : row.total_profit;
-    const suffix = metric === "profit" && value > 0 ? " PNL" : "";
-    return `**${index + 1}.** ${row.discord_username} — **${value}**${suffix}`;
+    const value = metric === "wagered" ? row.total_wagered : row.total_profit;
+    return `**${index + 1}.** ${row.discord_username} — **${value}**`;
   });
 
-  const embed = new EmbedBuilder()
-    .setTitle(metric === "wagered" ? "Leaderboard — wagered" : "Leaderboard — profit (PNL)")
+  const embed = baseEmbed(
+    metric === "wagered" ? "Leaderboard · wagered" : "Leaderboard · profit"
+  )
     .setDescription(lines.join("\n"))
-    .setColor(0xfee75c);
+    .setColor(COLORS.gold);
 
   await interaction.reply({ embeds: [embed] });
+}
+
+async function handleFairness(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!requireDatabase(interaction)) return;
+
+  const player = await ensurePlayer(interaction.user.id, usernameFrom(interaction));
+  const active = await ensureActiveServerSeed();
+
+  const embed = baseEmbed("Provably fair")
+    .addFields(
+      {
+        name: "Active server seed hash",
+        value: `\`${active.serverSeedHash}\``,
+      },
+      { name: "Your client seed", value: `\`${player.client_seed || interaction.user.id}\``, inline: true },
+      { name: "Next nonce", value: `${player.nonce}`, inline: true },
+      {
+        name: "Paytable",
+        value: `\`${PAYTABLE_VERSION}\` · target RTP ${(TARGET_RTP * 100).toFixed(0)}%`,
+      }
+    )
+    .setDescription(
+      "Outcomes use HMAC-SHA256(server_seed, client_seed:nonce:cursor). The server seed stays secret until rotation; the hash commits in advance."
+    );
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+}
+
+async function handleSeed(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!requireDatabase(interaction)) return;
+
+  const value = interaction.options.getString("value", true);
+  try {
+    const player = await setClientSeed(
+      interaction.user.id,
+      usernameFrom(interaction),
+      value
+    );
+    await interaction.reply({
+      content: `Client seed updated to \`${player.client_seed}\`. Applies to your next bet.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (error) {
+    if (error instanceof InvalidClientSeedError) {
+      await interaction.reply({
+        content: "Invalid client seed (1–64 characters required).",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handlePaytable(interaction: ChatInputCommandInteraction): Promise<void> {
+  const lines = [
+    `**Version:** \`${PAYTABLE_VERSION}\` · **Target RTP:** ~${(TARGET_RTP * 100).toFixed(0)}% on even-chance games`,
+    "",
+    `**Coinflip** — ${COINFLIP.description}`,
+    `**Dice** — ${DICE.description}`,
+    `**Mines** — ${MINES.description}`,
+    `**Roulette** — ${ROULETTE.description} · single straight-up **${ROULETTE.singlePayout}×** · even-money **${ROULETTE.colorPayout}×**`,
+  ];
+
+  await interaction.reply({
+    embeds: [baseEmbed("Published paytable").setDescription(lines.join("\n"))],
+  });
+}
+
+async function handleVerify(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!requireDatabase(interaction)) return;
+
+  const betId = interaction.options.getString("bet_id", true);
+  const serverSeed = interaction.options.getString("server_seed", true);
+  const bet = await fetchBetById(interaction.user.id, betId);
+
+  if (!bet) {
+    await interaction.reply({
+      content: "Bet not found for your account.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const meta = bet.metadata as Record<string, unknown>;
+  const hash = String(meta.server_seed_hash ?? "");
+  if (!verifyServerSeed(serverSeed, hash)) {
+    await interaction.reply({
+      content: "Server seed does not match the bet's committed hash.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const result = verifyBetReplay(serverSeed, meta as Parameters<typeof verifyBetReplay>[1]);
+  const embed = baseEmbed("Verify bet").addFields(
+    { name: "Bet ID", value: betId },
+    { name: "Game", value: bet.game },
+    {
+      name: "Result",
+      value: result.ok ? `✅ ${result.detail}` : `❌ ${result.reason}`,
+    }
+  );
+
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleCoinflip(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -168,8 +313,14 @@ async function handleCoinflip(interaction: ChatInputCommandInteraction): Promise
 
   const amount = interaction.options.getInteger("amount", true);
   const side = interaction.options.getString("side", true) as CoinSide;
+  const ctx = await prepareFairPlay(interaction);
 
-  const outcome = flipCoin();
+  const { outcome, digest } = flipCoinFair(
+    ctx.serverSeed,
+    ctx.clientSeed,
+    ctx.nonce,
+    0
+  );
   const won = outcome === side;
   const payout = coinflipPayout(amount, won);
 
@@ -180,25 +331,37 @@ async function handleCoinflip(interaction: ChatInputCommandInteraction): Promise
       game: "coinflip",
       wager: amount,
       payout,
-      metadata: { pick: side, outcome, won },
+      expectedNonce: ctx.nonce,
+      metadata: {
+        ...baseFairMetadata({
+          serverSeedHash: ctx.serverSeedHash,
+          clientSeed: ctx.clientSeed,
+          nonce: ctx.nonce,
+          game: "coinflip",
+          digest,
+        }),
+        pick: side,
+        outcome,
+        won,
+      },
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(won ? "Coinflip — win" : "Coinflip — loss")
-      .setDescription(`Coin landed on **${outcome}** (you picked **${side}**).`)
-      .addFields(
-        { name: "Wager", value: `${amount}`, inline: true },
-        { name: "Payout", value: `${payout}`, inline: true },
-        { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
-        { name: "Balance", value: `${newBalance}`, inline: true }
-      )
-      .setColor(won ? 0x57f287 : 0xed4245);
+    const embed = resultEmbed(
+      won ? "Coinflip · win" : "Coinflip · loss",
+      `Landed **${outcome}** · you picked **${side}** · ${COINFLIP.winMultiplier}× on win`,
+      won
+    ).addFields(
+      { name: "Wager", value: `${amount}`, inline: true },
+      { name: "Payout", value: `${payout}`, inline: true },
+      { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
+      { name: "Balance", value: `${newBalance}`, inline: true }
+    );
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
     if (error instanceof InsufficientBalanceError) {
       await interaction.reply({
-        content: `Not enough credits. Try \`/daily\` or lower the wager. ${STARTING_HINT}`,
+        content: `Not enough credits. ${STARTING_HINT}`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -212,8 +375,9 @@ async function handleDice(interaction: ChatInputCommandInteraction): Promise<voi
 
   const amount = interaction.options.getInteger("amount", true);
   const guess = interaction.options.getInteger("guess", true);
+  const ctx = await prepareFairPlay(interaction);
 
-  const roll = rollDice();
+  const { roll, digest } = rollDiceFair(ctx.serverSeed, ctx.clientSeed, ctx.nonce, 0);
   const won = roll === guess;
   const payout = dicePayout(amount, won);
 
@@ -224,25 +388,37 @@ async function handleDice(interaction: ChatInputCommandInteraction): Promise<voi
       game: "dice",
       wager: amount,
       payout,
-      metadata: { guess, roll, won },
+      expectedNonce: ctx.nonce,
+      metadata: {
+        ...baseFairMetadata({
+          serverSeedHash: ctx.serverSeedHash,
+          clientSeed: ctx.clientSeed,
+          nonce: ctx.nonce,
+          game: "dice",
+          digest,
+        }),
+        guess,
+        roll,
+        won,
+      },
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(won ? "Dice — win" : "Dice — loss")
-      .setDescription(`Rolled **${roll}** (you guessed **${guess}**).`)
-      .addFields(
-        { name: "Wager", value: `${amount}`, inline: true },
-        { name: "Payout", value: `${payout}`, inline: true },
-        { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
-        { name: "Balance", value: `${newBalance}`, inline: true }
-      )
-      .setColor(won ? 0x57f287 : 0xed4245);
+    const embed = resultEmbed(
+      won ? "Dice · win" : "Dice · loss",
+      `Rolled **${roll}** · guess **${guess}** · ${DICE.winMultiplier}× on win`,
+      won
+    ).addFields(
+      { name: "Wager", value: `${amount}`, inline: true },
+      { name: "Payout", value: `${payout}`, inline: true },
+      { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
+      { name: "Balance", value: `${newBalance}`, inline: true }
+    );
 
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
     if (error instanceof InsufficientBalanceError) {
       await interaction.reply({
-        content: `Not enough credits. Try \`/daily\` or lower the wager. ${STARTING_HINT}`,
+        content: `Not enough credits. ${STARTING_HINT}`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -250,3 +426,103 @@ async function handleDice(interaction: ChatInputCommandInteraction): Promise<voi
     throw error;
   }
 }
+
+async function handleRoulette(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!requireDatabase(interaction)) return;
+
+  const amount = interaction.options.getInteger("amount", true);
+  const betType = interaction.options.getString("bet", true) as RouletteBetType;
+  const number = interaction.options.getInteger("number");
+
+  if (betType === "single" && number === null) {
+    await interaction.reply({
+      content: "Single bets require the `number` option (0–36).",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const ctx = await prepareFairPlay(interaction);
+  const { pocket, digest } = spinRouletteFair(
+    ctx.serverSeed,
+    ctx.clientSeed,
+    ctx.nonce,
+    0
+  );
+  const won = evaluateRouletteBet(
+    betType,
+    pocket,
+    betType === "single" ? (number ?? undefined) : undefined
+  );
+  const payout = roulettePayout(amount, betType, won, pocket);
+
+  try {
+    const { newBalance, profit } = await recordBet({
+      discordId: interaction.user.id,
+      username: usernameFrom(interaction),
+      game: "roulette",
+      wager: amount,
+      payout,
+      expectedNonce: ctx.nonce,
+      metadata: {
+        ...baseFairMetadata({
+          serverSeedHash: ctx.serverSeedHash,
+          clientSeed: ctx.clientSeed,
+          nonce: ctx.nonce,
+          game: "roulette",
+          digest,
+        }),
+        bet_type: betType,
+        number: betType === "single" ? number : undefined,
+        pocket,
+        color: pocketColor(pocket),
+        won,
+      },
+    });
+
+    const embed = resultEmbed(
+      won ? "Roulette · win" : "Roulette · loss",
+      `Ball landed on **${pocket}** (${pocketColor(pocket)}) · bet **${betType}**`,
+      won
+    ).addFields(
+      { name: "Wager", value: `${amount}`, inline: true },
+      { name: "Payout", value: `${payout}`, inline: true },
+      { name: "PNL", value: `${profit >= 0 ? "+" : ""}${profit}`, inline: true },
+      { name: "Balance", value: `${newBalance}`, inline: true }
+    );
+
+    await interaction.reply({ embeds: [embed] });
+  } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      await interaction.reply({
+        content: `Not enough credits. ${STARTING_HINT}`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handleMines(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!requireDatabase(interaction)) return;
+
+  const sub = interaction.options.getSubcommand(true);
+  if (sub === "start") {
+    try {
+      await handleMinesStart(interaction);
+    } catch (error) {
+      if (error instanceof InsufficientBalanceError) {
+        await interaction.reply({
+          content: `Not enough credits. ${STARTING_HINT}`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+}
+
+/** Exported for tests / docs */
+export const PAYTABLE_GAMES = ALL_GAMES;
