@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "register-commands": "tsx src/register-commands.ts",
+    "validate:commands": "vitest run tests/commands/definitions.test.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "check:migrations": "tsx scripts/validate-migrations.ts",

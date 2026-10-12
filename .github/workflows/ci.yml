@@ -17,4 +17,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run check:migrations
+      - run: npm run validate:commands
       - run: npm test
