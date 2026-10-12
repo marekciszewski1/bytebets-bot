@@ -8,6 +8,8 @@ export type PlayerRow = {
   total_wagered: number;
   total_profit: number;
   last_daily_at: string | null;
+  client_seed: string;
+  nonce: number;
 };
 
 export type LeaderboardEntry = {
@@ -15,6 +17,16 @@ export type LeaderboardEntry = {
   balance: number;
   total_wagered: number;
   total_profit: number;
+};
+
+export type BetRow = {
+  id: string;
+  game: string;
+  wager: number;
+  payout: number;
+  profit: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
 };
 
 export async function ensurePlayer(
@@ -28,7 +40,38 @@ export async function ensurePlayer(
   });
 
   if (error) throw error;
+  const row = data as PlayerRow;
+  if (!row.client_seed) {
+    row.client_seed = discordId;
+  }
+  return row;
+}
+
+export async function setClientSeed(
+  discordId: string,
+  username: string,
+  clientSeed: string
+): Promise<PlayerRow> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc("set_client_seed", {
+    p_discord_id: discordId,
+    p_discord_username: username,
+    p_client_seed: clientSeed,
+  });
+
+  if (error) {
+    if (error.message.includes("invalid_client_seed")) {
+      throw new InvalidClientSeedError();
+    }
+    throw error;
+  }
   return data as PlayerRow;
+}
+
+export class InvalidClientSeedError extends Error {
+  constructor() {
+    super("invalid_client_seed");
+  }
 }
 
 export async function claimDaily(
@@ -67,8 +110,9 @@ export async function recordBet(input: {
   game: string;
   wager: number;
   payout: number;
+  expectedNonce: number;
   metadata?: Record<string, unknown>;
-}): Promise<{ newBalance: number; profit: number }> {
+}): Promise<{ newBalance: number; profit: number; usedNonce: number }> {
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc("record_bet", {
     p_discord_id: input.discordId,
@@ -77,6 +121,7 @@ export async function recordBet(input: {
     p_wager: input.wager,
     p_payout: input.payout,
     p_metadata: input.metadata ?? {},
+    p_expected_nonce: input.expectedNonce,
   });
 
   if (error) {
@@ -86,6 +131,9 @@ export async function recordBet(input: {
     if (error.message.includes("invalid_wager")) {
       throw new InvalidWagerError();
     }
+    if (error.message.includes("nonce_mismatch")) {
+      throw new NonceMismatchError();
+    }
     throw error;
   }
 
@@ -93,6 +141,7 @@ export async function recordBet(input: {
   return {
     newBalance: Number(row.new_balance),
     profit: Number(row.profit),
+    usedNonce: Number(row.used_nonce),
   };
 }
 
@@ -105,6 +154,12 @@ export class InsufficientBalanceError extends Error {
 export class InvalidWagerError extends Error {
   constructor() {
     super("invalid_wager");
+  }
+}
+
+export class NonceMismatchError extends Error {
+  constructor() {
+    super("nonce_mismatch");
   }
 }
 
@@ -122,4 +177,29 @@ export async function fetchLeaderboard(
 
   if (error) throw error;
   return (data ?? []) as LeaderboardEntry[];
+}
+
+export async function fetchBetById(
+  discordId: string,
+  betId: string
+): Promise<BetRow | null> {
+  const supabase = getSupabase();
+  const { data: player, error: playerError } = await supabase
+    .from("players")
+    .select("id")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+
+  if (playerError) throw playerError;
+  if (!player) return null;
+
+  const { data, error } = await supabase
+    .from("bets")
+    .select("id, game, wager, payout, profit, metadata, created_at")
+    .eq("id", betId)
+    .eq("player_id", player.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as BetRow | null) ?? null;
 }
