@@ -11,6 +11,10 @@ import { isSupabaseConfigured } from "./db/supabase.js";
 import { userFacingErrorMessage } from "./db/migrationHints.js";
 import { ensureActiveServerSeed } from "./fairness/serverSeed.js";
 import { startFairnessWebServer } from "./web/server.js";
+import {
+  fetchRegisteredCommandNames,
+  registerSlashCommands,
+} from "./commands/registerSlashCommands.js";
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -38,8 +42,22 @@ if (process.env.FAIRNESS_WEB_ENABLED !== "false") {
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}`);
+
+  const registerOnStart = process.env.REGISTER_COMMANDS_ON_START !== "false";
+  if (registerOnStart) {
+    try {
+      const result = await registerSlashCommands();
+      console.log(
+        `Slash commands registered on startup (${result.scope}, ${result.count} commands)`
+      );
+    } catch (error) {
+      console.error("Failed to register slash commands on startup:", error);
+    }
+  } else {
+    console.log("REGISTER_COMMANDS_ON_START=false — skipping slash command registration");
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
