@@ -9,6 +9,7 @@ import {
 } from "./commands/lobbyHandlers.js";
 import { isSupabaseConfigured } from "./db/supabase.js";
 import { ensureActiveServerSeed } from "./fairness/serverSeed.js";
+import { startFairnessWebServer } from "./web/server.js";
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -28,6 +29,10 @@ if (!isSupabaseConfigured()) {
   } catch (error) {
     console.error("Failed to initialize fairness commitment:", error);
   }
+}
+
+if (process.env.FAIRNESS_WEB_ENABLED !== "false") {
+  startFairnessWebServer();
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -51,6 +56,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId.startsWith("lobby:")) {
         await handleLobbyButton(interaction);
         return;
+      }
+      if (interaction.customId.startsWith("play:")) {
+        if (interaction.customId === "play:lobby") {
+          await interaction.reply({
+            content: "Use **`/play`** for the full casino lobby.",
+            flags: 64,
+          });
+          return;
+        }
+        if (interaction.customId === "play:coinflip:open") {
+          await interaction.reply({
+            content: "Use **`/coinflip open`** and **`/coinflip join match:<id>`**.",
+            flags: 64,
+          });
+          return;
+        }
+        if (interaction.customId === "play:coinflip:house") {
+          await interaction.reply({
+            content: "Use **`/coinflip bot`** with amount (×10 SC) and side.",
+            flags: 64,
+          });
+          return;
+        }
       }
     }
 

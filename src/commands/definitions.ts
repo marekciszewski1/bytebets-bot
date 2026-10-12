@@ -8,6 +8,29 @@ export const commandBuilders = [
     .setName("help")
     .setDescription("ByteBits virtual casino overview"),
   new SlashCommandBuilder()
+    .setName("play")
+    .setDescription("🎰 Open the ByteBits casino lobby and choose a game")
+    .addStringOption((o) =>
+      o
+        .setName("game")
+        .setDescription("Jump to a game hub")
+        .addChoices(
+          { name: "Coinflip", value: "coinflip" },
+          { name: "Dice", value: "dice" },
+          { name: "Roulette", value: "roulette" },
+          { name: "Mines", value: "mines" }
+        )
+    )
+    .addStringOption((o) =>
+      o
+        .setName("mode")
+        .setDescription("Coinflip mode when game=coinflip")
+        .addChoices(
+          { name: "House dealer", value: "house" },
+          { name: "PvP duels", value: "pvp" }
+        )
+    ),
+  new SlashCommandBuilder()
     .setName("casino")
     .setDescription("Open the casino lobby (buttons and game menu)"),
   new SlashCommandBuilder()
@@ -143,22 +166,64 @@ export const commandBuilders = [
     ),
   new SlashCommandBuilder()
     .setName("coinflip")
-    .setDescription("Provably fair coinflip (~1.90× on win)")
-    .addIntegerOption((option) =>
-      option
-        .setName("amount")
-        .setDescription("Credits to wager")
-        .setRequired(true)
-        .setMinValue(1)
+    .setDescription("🪙 Social coinflip — PvP duels or ByteBits House dealer")
+    .addSubcommand((sub) =>
+      sub
+        .setName("create")
+        .setDescription("Create a PvP match (stake must be multiple of 10 SC)")
+        .addIntegerOption((o) =>
+          o.setName("amount").setDescription("Stake per player").setRequired(true).setMinValue(10)
+        )
+        .addStringOption((o) =>
+          o
+            .setName("side")
+            .setDescription("Your side")
+            .setRequired(true)
+            .addChoices({ name: "Heads", value: "heads" }, { name: "Tails", value: "tails" })
+        )
+        .addStringOption((o) =>
+          o
+            .setName("visibility")
+            .addChoices({ name: "Public", value: "public" }, { name: "Private invite", value: "private" })
+        )
+        .addUserOption((o) => o.setName("opponent").setDescription("Optional invitee for private match"))
     )
-    .addStringOption((option) =>
-      option
-        .setName("side")
-        .setDescription("Heads or tails")
-        .setRequired(true)
-        .addChoices(
-          { name: "Heads", value: "heads" },
-          { name: "Tails", value: "tails" }
+    .addSubcommand((sub) =>
+      sub.setName("open").setDescription("List open public PvP matches in this server")
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("join")
+        .setDescription("Join an open PvP match")
+        .addStringOption((o) => o.setName("match").setDescription("Match ID").setRequired(true))
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("cancel")
+        .setDescription("Cancel your open match and refund escrow")
+        .addStringOption((o) => o.setName("match").setDescription("Match ID").setRequired(true))
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("status")
+        .setDescription("View match status")
+        .addStringOption((o) => o.setName("match").setDescription("Match ID").setRequired(true))
+    )
+    .addSubcommand((sub) =>
+      sub.setName("rules").setDescription("PvP pot fee and house bot rules")
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("bot")
+        .setDescription("Play vs ByteBits House Dealer 🤖")
+        .addIntegerOption((o) =>
+          o.setName("amount").setDescription("Stake (multiple of 10 SC)").setRequired(true).setMinValue(10)
+        )
+        .addStringOption((o) =>
+          o
+            .setName("side")
+            .setRequired(true)
+            .addChoices({ name: "Heads", value: "heads" }, { name: "Tails", value: "tails" })
         )
     ),
   new SlashCommandBuilder()
